@@ -30,16 +30,9 @@ exports.onUSerMessageCreated = functions.database.ref('/Messages/{messageId}/{se
         }
     }
 
-    // const tokensToRemove = []
-
     const response = await admin.messaging().sendToDevice(notificationToken.token,payload)
     const {error} = response.results[0];
     if (error) {
         console.error('Failure sending notification to', notificationToken.token, error);
-        // Cleanup the tokens who are not registered anymore.
-        if (error.code === 'messaging/invalid-registration-token' ||
-            error.code === 'messaging/registration-token-not-registered') {
-        // tokensToRemove.push(no.ref.child(tokens[index]).remove());
-        }
     }
 })
