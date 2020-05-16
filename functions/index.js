@@ -97,29 +97,93 @@ exports.onGeneralChatMessageCreated = functions.database.ref('/Groups/g3n3ralgr0
         notification:{
             title:'General Chat Group',
             body: `${sender.name}: ${message}`,
-            // icon:groupImage?groupImage:placeholder,
         }
     }
 
     let tokens = []
 
     admin.database().ref(`Tokens`).once('value',(snapshot)=>{
-        snapshot.forEach(async data=>{
+        snapshot.forEach(data=>{
             if(!(data.key === from)){
-                const response = await admin.messaging().sendToDevice(data.val().token,payload)
-                const {error} = response.results[0];
-                if (error) {
-                    console.error('Failure sending notification to', token, error);
-                }else{
-                    console.log('Notification Sent')
-                }
+                tokens.push(data.val().token)
             }
         })
     })
     
-    if(tokens){
-        console.log(tokens)
-        
-    }
+    setTimeout(async() => {
+        if(tokens.length>0){
+            const response = await admin.messaging().sendToDevice(tokens,payload)
+            const {error} = response.results[0];
+            if (error) {
+                console.error('Failure sending notification to', token, error);
+            }else{
+                console.log('Notification Sent')
+            }
+        }
+    }, 500);
+})
+
+exports.onChatRequestSent = functions.database.ref('/Chat Requests/{userId}/{requestId}')
+.onCreate(async (snapshot,context)=>{
     
+    const receiverId = context.params.userId
+    const sender = await getUser(context.params.requestId)
+    const payload = {
+        notification:{
+            title:'Chat Request',
+            body: `${sender.name} sent you a chat request`,
+            // icon:groupImage?groupImage:placeholder,
+        }
+    }
+
+    snapshot.forEach( async data=>{
+        const reqType = data.val()
+        if(reqType === 'received'){
+            const token = await getDeviceToken(receiverId)
+            const response = await admin.messaging().sendToDevice(token,payload)
+            const {error} = response.results[0];
+            if (error) {
+                console.error('Failure sending notification to', token, error);
+            }else{
+                console.log('Notification Sent')
+            }
+        }
+    })
+})
+
+exports.onJobPostCreated = functions.database.ref('/job postings/{postId}')
+.onCreate(async (snapshot,context)=>{
+    
+    // console.log( 'data', snapshot._data)
+    const { content } = snapshot._data
+
+    const payload = {
+        notification:{
+            title:'New Job Posting',
+            body: `${content}`,
+        }
+    }
+
+    let tokens = []
+
+    admin.database().ref(`Tokens`).once('value',(snapshot)=>{
+        snapshot.forEach(data=>{
+            // if(!(data.key === from)){
+                tokens.push(data.val().token)
+            // }
+        })
+    })
+    
+    setTimeout(async() => {
+        if(tokens.length>0){
+            const response = await admin.messaging().sendToDevice(tokens,payload)
+            const {error} = response.results[0];
+            if (error) {
+                console.error('Failure sending notification to', token, error);
+            }else{
+                console.log('Notification Sent')
+            }
+        }
+    }, 500);
+
 })
