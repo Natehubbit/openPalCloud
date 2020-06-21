@@ -17,11 +17,30 @@ async function getDeviceToken(id){
     return deviceTokenResponse[0].val().token
 }
 
+function checkMessageType(type,message){
+    switch (type) {
+        case "text":
+            return message
+        case "image":
+            return "Image"
+        case "mp3":
+            return "Audio"
+        case "docx":
+            return "Document"
+        case "pdf":
+            return "Pdf"
+        case "3gp":
+            return "Voice Note"
+        default:
+            return message;
+    }
+}
+
 
 exports.onUserMessageCreated = functions.database.ref('/Messages/{messageId}/{senderId}/{dataId}')
 .onCreate(async (snapshot,context)=>{
 
-    const { message,from,to } = snapshot._data
+    const { message,from,to,type } = snapshot._data
 
     if(from !== context.params.senderId) return
 
@@ -36,12 +55,17 @@ exports.onUserMessageCreated = functions.database.ref('/Messages/{messageId}/{se
     const results = await Promise.all([senderPromise, deviceTokenPromise])
     const sender = results[0].val()
     const notificationToken = results[1].val()
+    let messageBody = checkMessageType(type,message)
 
     const payload = {
         notification:{
             title: sender.name,
-            body:message,
+            body:messageBody,
             icon:sender.image?sender.image:placeholder,
+            click_action:"PRIVATE_CHAT"
+        },
+        data: {
+            extra:sender.uid
         }
     }
 
@@ -58,19 +82,24 @@ exports.onGroupMessageCreated = functions.database.ref('/Groups/{groupId}/{messa
     
     if(context.params.groupId === 'g3n3ralgr0up1d') return
 
-    const { message,from,to } = snapshot._data
+    const { message,from,to,type } = snapshot._data
 
     //GET ALL MEMBERS IN GROUP, GROUP NAME, SENDER NAME
     const groupDetailsPromise = admin.database().ref('/grou/'+to).once('value')
     const groupDetails = await Promise.all([groupDetailsPromise]);
-    const {members, groupName, groupImage} = groupDetails[0].val()
+    const {members, groupName, groupImage, groupId} = groupDetails[0].val()
     const sender = await getUser(from)
+    let messageBody = checkMessageType(type,message)
 
     const payload = {
         notification:{
             title:groupName,
-            body: `${sender.name}: ${message}`,
+            body: `${sender.name}: ${messageBody}`,
             icon:groupImage?groupImage:placeholder,
+            click_action:"GROUP_CHAT"
+        },
+        data: {
+            extra:groupId
         }
     }
 
@@ -89,14 +118,19 @@ exports.onGroupMessageCreated = functions.database.ref('/Groups/{groupId}/{messa
 exports.onGeneralChatMessageCreated = functions.database.ref('/Groups/g3n3ralgr0up1d/{id}')
 .onCreate(async (snapshot,context)=>{
     
-    const { message,from} = snapshot._data
+    const { message,from, type} = snapshot._data
 
     const sender = await getUser(from)
+    let messageBody = checkMessageType(type,message)
 
     const payload = {
         notification:{
             title:'General Chat Group',
-            body: `${sender.name}: ${message}`,
+            body: `${sender.name}: ${messageBody}`,
+            click_action:"GENERAL_CHAT"
+        },
+        data:{
+            extra:"g3n3ralgr0up1d"
         }
     }
 
@@ -132,7 +166,10 @@ exports.onChatRequestSent = functions.database.ref('/Chat Requests/{userId}/{req
         notification:{
             title:'Chat Request',
             body: `${sender.name} sent you a chat request`,
-            // icon:groupImage?groupImage:placeholder,
+            click_action:"CHAT_REQUEST"
+        },
+        data: {
+            extra:sender.uid
         }
     }
 
@@ -155,12 +192,16 @@ exports.onJobPostCreated = functions.database.ref('/job postings/{postId}')
 .onCreate(async (snapshot,context)=>{
     
     // console.log( 'data', snapshot._data)
-    const { content } = snapshot._data
+    const { contents } = snapshot._data
 
     const payload = {
         notification:{
             title:'New Job Posting',
-            body: `${content}`,
+            body: `${contents}`,
+            click_action:"JOB_POSTINGS"
+        },
+        data: {
+            extra:context.params.postId
         }
     }
 
